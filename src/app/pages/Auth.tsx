@@ -7,6 +7,11 @@ import { isSupabaseConfigured, supabase } from "../../config/supabase";
 import { getLevelInfo } from "../utils/level";
 import { buildSupabaseRedirectUrl } from "../utils/auth";
 import {
+  signInWithEmail,
+  signUpWithEmail,
+} from "../../services/supabaseService";
+import {
+  DEVELOPER_ACCOUNT_EMAILS,
   ensureDeveloperStreak,
   getAccounts,
   hashPassword,
@@ -48,6 +53,7 @@ export const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -76,6 +82,50 @@ export const Auth = () => {
     };
   };
 
+  const syncSupabaseUser = React.useCallback((authUser: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+  }) => {
+    const normalizedEmail = authUser.email?.trim().toLowerCase();
+    if (!normalizedEmail) return false;
+
+    const account = getAccounts<any[]>().find(
+      (item: any) =>
+        (item?.email ?? "").trim().toLowerCase() === normalizedEmail,
+    );
+    const normalizedAccount = ensureDeveloperStreak(account) ?? account;
+    const metadata = authUser.user_metadata ?? {};
+    const points = Number(normalizedAccount?.points) || 0;
+    const metadataName =
+      typeof metadata.full_name === "string"
+        ? metadata.full_name
+        : typeof metadata.name === "string"
+          ? metadata.name
+          : "";
+
+    setUser({
+      id: authUser.id,
+      name:
+        normalizedAccount?.name ||
+        metadataName ||
+        normalizedEmail.split("@")[0],
+      email: normalizedEmail,
+      age: normalizedAccount?.age,
+      profilePhoto: normalizedAccount?.profilePhoto,
+      points,
+      level: getLevelInfo(points),
+      itemsDisposed: Number(normalizedAccount?.itemsDisposed) || 0,
+      co2Saved: Number(normalizedAccount?.co2Saved) || 0,
+      streak: Number(normalizedAccount?.streak) || 0,
+      lastValidActivityAt:
+        Number(normalizedAccount?.lastValidActivityAt) || Date.now(),
+      phone: normalizedAccount?.phone,
+    });
+    saveSession(normalizedEmail);
+    return true;
+  }, [setUser]);
+
   React.useEffect(() => {
     if (!isSupabaseConfigured()) {
       return;
@@ -85,38 +135,19 @@ export const Auth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const email = session.user.email || "";
-        const userName =
-          session.user.user_metadata.full_name ||
-          session.user.user_metadata.name ||
-          email.split("@")[0] ||
-          "Usuário";
-
-        setUser({
-          name: userName,
-          email,
-          points: 0,
-          level: getLevelInfo(0),
-          itemsDisposed: 0,
-          co2Saved: 0,
-          streak: 0,
-          lastValidActivityAt: Date.now(),
-        });
-
-        if (email) {
-          saveSession(email);
+        if (syncSupabaseUser(session.user)) {
+          navigate("/dashboard", { replace: true });
         }
-
-        navigate("/dashboard", { replace: true });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, setUser]);
+  }, [navigate, syncSupabaseUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    setSuccessMsg("");
 
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedName = name.trim();
@@ -145,47 +176,70 @@ export const Auth = () => {
 
     setIsSubmitting(true);
 
-    if (isLogin) {
-      const accounts = getAccounts<any[]>();
-      const account = accounts.find((acc: any) => acc.email === trimmedEmail);
-
-      if (!account) {
-        setErrorMsg("Conta não encontrada.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const isValidPassword = await verifyPassword(
-        account.password,
-        trimmedPassword,
-      );
-
-      if (!isValidPassword) {
-        setErrorMsg("E-mail ou senha inválidos.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const normalizedAccount = ensureDeveloperStreak(account) ?? account;
-      const userData = {
-        ...buildUserFromAccount(normalizedAccount),
-      };
-
-      if (normalizedAccount !== account) {
+    try {
+      if (isLogin) {
         const accounts = getAccounts<any[]>();
-        const idx = accounts.findIndex(
-          (item: any) => item.email === trimmedEmail,
+        const account = accounts.find(
+          (item: any) =>
+            (item?.email ?? "").trim().toLowerCase() === trimmedEmail &&
+            typeof item?.password === "string",
         );
-        if (idx >= 0) {
-          accounts[idx] = normalizedAccount;
-          saveAccounts(accounts);
+
+        if (account) {
+          const isValidPassword = await verifyPassword(
+            account.password,
+            trimmedPassword,
+          );
+
+          if (!isValidPassword) {
+            setErrorMsg("E-mail ou senha inválidos.");
+            return;
+          }
+
+          const normalizedAccount = ensureDeveloperStreak(account) ?? account;
+          if (normalizedAccount !== account) {
+            const index = accounts.findIndex(
+              (item: any) => item.email === trimmedEmail,
+            );
+            if (index >= 0) {
+              accounts[index] = normalizedAccount;
+              saveAccounts(accounts);
+            }
+          }
+
+          setUser(buildUserFromAccount(normalizedAccount));
+          saveSession(trimmedEmail);
+          navigate("/dashboard", { replace: true });
+          return;
         }
+
+        if (!isSupabaseConfigured()) {
+          setErrorMsg("Conta não encontrada.");
+          return;
+        }
+
+        const result = await signInWithEmail(trimmedEmail, trimmedPassword);
+        if (!result.success) {
+          setErrorMsg(
+            result.error.includes("Email not confirmed")
+              ? "Confirme seu e-mail antes de entrar."
+              : result.error.includes("Invalid login credentials")
+                ? "E-mail ou senha inválidos."
+                : result.error,
+          );
+          return;
+        }
+
+        if (!result.user || !result.session) {
+          setErrorMsg("Não foi possível iniciar a sessão. Tente novamente.");
+          return;
+        }
+
+        syncSupabaseUser(result.user);
+        navigate("/dashboard", { replace: true });
+        return;
       }
 
-      setUser(userData);
-      saveSession(trimmedEmail);
-      navigate("/dashboard", { replace: true });
-    } else {
       const accounts = getAccounts<any[]>();
       if (
         accounts.find(
@@ -193,7 +247,51 @@ export const Auth = () => {
         )
       ) {
         setErrorMsg("E-mail já está em uso.");
-        setIsSubmitting(false);
+        return;
+      }
+
+      if (isSupabaseConfigured()) {
+        const result = await signUpWithEmail(
+          trimmedEmail,
+          trimmedPassword,
+          trimmedName,
+        );
+
+        if (!result.success) {
+          setErrorMsg(result.error);
+          return;
+        }
+
+        if (!result.user) {
+          setErrorMsg("O Supabase não retornou os dados da conta. Tente novamente.");
+          return;
+        }
+
+        if (result.user.identities?.length === 0) {
+          setErrorMsg(
+            "Este e-mail já possui uma conta. Tente entrar ou recuperar sua senha.",
+          );
+          return;
+        }
+
+        if (!result.session) {
+          setSuccessMsg(
+            "Cadastro iniciado! Confirme seu e-mail pelo link enviado para concluir e depois entre na sua conta.",
+          );
+          return;
+        }
+
+        syncSupabaseUser(result.user);
+        addNotification(
+          "Cadastro concluído",
+          "Sua conta EcoByte foi criada com sucesso.",
+          {
+            category: "account",
+            eventKey: `account-created:${trimmedEmail}`,
+            email: trimmedEmail,
+          },
+        );
+        navigate("/dashboard", { replace: true });
         return;
       }
 
@@ -231,9 +329,16 @@ export const Auth = () => {
         },
       );
       navigate("/dashboard", { replace: true });
+    } catch (error) {
+      console.error("Falha na autenticação:", error);
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a operação. Tente novamente.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   const handleGoogleLogin = async () => {
@@ -362,6 +467,14 @@ export const Auth = () => {
                 {errorMsg && (
                   <div className="mt-5 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                     {errorMsg}
+                  </div>
+                )}
+                {successMsg && (
+                  <div
+                    className="mt-5 rounded-2xl border border-eco-neon/30 bg-eco-neon/10 px-4 py-3 text-sm text-eco-neon"
+                    role="status"
+                  >
+                    {successMsg}
                   </div>
                 )}
 

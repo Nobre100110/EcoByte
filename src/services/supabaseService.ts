@@ -2,14 +2,26 @@ import { isSupabaseConfigured, supabase } from "../config/supabase";
 import { UserData } from "../app/store";
 
 // Autenticação
-export const signUpWithEmail = async (email: string, password: string) => {
+export const signUpWithEmail = async (
+  email: string,
+  password: string,
+  name: string,
+) => {
   if (!isSupabaseConfigured()) {
     return { success: false, error: "Supabase não configurado." };
   }
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: name } },
+  });
   if (error) return { success: false, error: error.message };
-  return { success: true, user: data.user };
+  return {
+    success: true,
+    user: data.user,
+    session: data.session,
+  };
 };
 
 export const signInWithEmail = async (email: string, password: string) => {
@@ -22,7 +34,11 @@ export const signInWithEmail = async (email: string, password: string) => {
     password,
   });
   if (error) return { success: false, error: error.message };
-  return { success: true, user: data.user };
+  return {
+    success: true,
+    user: data.user,
+    session: data.session,
+  };
 };
 
 export const signOut = async () => {

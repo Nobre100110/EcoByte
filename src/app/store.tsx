@@ -359,7 +359,46 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user || null);
+      const authUser = session?.user ?? null;
+      setAuthUser(authUser);
+      if (!authUser?.email) return;
+
+      const email = authUser.email.trim().toLowerCase();
+      const accounts = getAccounts<any[]>();
+      const account = ensureDeveloperStreak(
+        accounts.find(
+          (item: any) =>
+            (item?.email ?? "").trim().toLowerCase() === email,
+        ),
+      );
+      const points = Number(account?.points) || 0;
+      const lastValidActivityAt =
+        Number(account?.lastValidActivityAt) || Date.now();
+      const sequence = getCurrentSequenceState({
+        lastValidActivityAt,
+        currentDailyStreak: Number(account?.streak) || 0,
+        currentWeeklyStreak: 0,
+      });
+
+      setUser({
+        id: authUser.id,
+        name:
+          account?.name ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          email.split("@")[0],
+        email,
+        age: account?.age,
+        profilePhoto: account?.profilePhoto,
+        points,
+        level: getLevelInfo(points),
+        itemsDisposed: Number(account?.itemsDisposed) || 0,
+        co2Saved: Number(account?.co2Saved) || 0,
+        streak: sequence.dailyStreak,
+        lastValidActivityAt: sequence.lastValidActivityAt,
+        phone: account?.phone,
+      });
+      saveSession(email);
     });
 
     return () => subscription?.unsubscribe();
