@@ -45,6 +45,7 @@ export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser, addNotification } = useStore();
+
   const [isLogin, setIsLogin] = useState(location.pathname !== "/register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -82,62 +83,64 @@ export const Auth = () => {
     };
   };
 
-  const syncSupabaseUser = React.useCallback((authUser: {
-    id: string;
-    email?: string;
-    user_metadata?: Record<string, unknown>;
-  }) => {
-    const normalizedEmail = authUser.email?.trim().toLowerCase();
-    if (!normalizedEmail) return false;
+  const syncSupabaseUser = React.useCallback(
+    (authUser: {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+    }) => {
+      const normalizedEmail = authUser.email?.trim().toLowerCase();
+      if (!normalizedEmail) return false;
 
-    const account = getAccounts<any[]>().find(
-      (item: any) =>
-        (item?.email ?? "").trim().toLowerCase() === normalizedEmail,
-    );
-    const normalizedAccount = ensureDeveloperStreak(account) ?? account;
-    const metadata = authUser.user_metadata ?? {};
-    const points = Number(normalizedAccount?.points) || 0;
-    const metadataName =
-      typeof metadata.full_name === "string"
-        ? metadata.full_name
-        : typeof metadata.name === "string"
-          ? metadata.name
-          : "";
+      const account = getAccounts<any[]>().find(
+        (item: any) =>
+          (item?.email ?? "").trim().toLowerCase() === normalizedEmail,
+      );
 
-    setUser({
-      id: authUser.id,
-      name:
-        normalizedAccount?.name ||
-        metadataName ||
-        normalizedEmail.split("@")[0],
-      email: normalizedEmail,
-      age: normalizedAccount?.age,
-      profilePhoto: normalizedAccount?.profilePhoto,
-      points,
-      level: getLevelInfo(points),
-      itemsDisposed: Number(normalizedAccount?.itemsDisposed) || 0,
-      co2Saved: Number(normalizedAccount?.co2Saved) || 0,
-      streak: Number(normalizedAccount?.streak) || 0,
-      lastValidActivityAt:
-        Number(normalizedAccount?.lastValidActivityAt) || Date.now(),
-      phone: normalizedAccount?.phone,
-    });
-    saveSession(normalizedEmail);
-    return true;
-  }, [setUser]);
+      const normalizedAccount = ensureDeveloperStreak(account) ?? account;
+      const metadata = authUser.user_metadata ?? {};
+      const points = Number(normalizedAccount?.points) || 0;
+
+      const metadataName =
+        typeof metadata.full_name === "string"
+          ? metadata.full_name
+          : typeof metadata.name === "string"
+            ? metadata.name
+            : "";
+
+      setUser({
+        id: authUser.id,
+        name:
+          normalizedAccount?.name ||
+          metadataName ||
+          normalizedEmail.split("@")[0],
+        email: normalizedEmail,
+        age: normalizedAccount?.age,
+        profilePhoto: normalizedAccount?.profilePhoto,
+        points,
+        level: getLevelInfo(points),
+        itemsDisposed: Number(normalizedAccount?.itemsDisposed) || 0,
+        co2Saved: Number(normalizedAccount?.co2Saved) || 0,
+        streak: Number(normalizedAccount?.streak) || 0,
+        lastValidActivityAt:
+          Number(normalizedAccount?.lastValidActivityAt) || Date.now(),
+        phone: normalizedAccount?.phone,
+      });
+
+      saveSession(normalizedEmail);
+      return true;
+    },
+    [setUser],
+  );
 
   React.useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      return;
-    }
+    if (!isSupabaseConfigured()) return;
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        if (syncSupabaseUser(session.user)) {
-          navigate("/dashboard", { replace: true });
-        }
+      if (session?.user && syncSupabaseUser(session.user)) {
+        navigate("/dashboard", { replace: true });
       }
     });
 
@@ -159,6 +162,7 @@ export const Auth = () => {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!emailRegex.test(trimmedEmail)) {
       setErrorMsg("Informe um e-mail válido.");
       return;
@@ -179,6 +183,7 @@ export const Auth = () => {
     try {
       if (isLogin) {
         const accounts = getAccounts<any[]>();
+
         const account = accounts.find(
           (item: any) =>
             (item?.email ?? "").trim().toLowerCase() === trimmedEmail &&
@@ -197,10 +202,13 @@ export const Auth = () => {
           }
 
           const normalizedAccount = ensureDeveloperStreak(account) ?? account;
+
           if (normalizedAccount !== account) {
             const index = accounts.findIndex(
-              (item: any) => item.email === trimmedEmail,
+              (item: any) =>
+                (item.email ?? "").trim().toLowerCase() === trimmedEmail,
             );
+
             if (index >= 0) {
               accounts[index] = normalizedAccount;
               saveAccounts(accounts);
@@ -219,6 +227,7 @@ export const Auth = () => {
         }
 
         const result = await signInWithEmail(trimmedEmail, trimmedPassword);
+
         if (!result.success) {
           setErrorMsg(
             result.error.includes("Email not confirmed")
@@ -241,9 +250,10 @@ export const Auth = () => {
       }
 
       const accounts = getAccounts<any[]>();
+
       if (
         accounts.find(
-          (acc: any) => (acc.email ?? "").toLowerCase() === trimmedEmail,
+          (acc: any) => (acc.email ?? "").trim().toLowerCase() === trimmedEmail,
         )
       ) {
         setErrorMsg("E-mail já está em uso.");
@@ -262,8 +272,28 @@ export const Auth = () => {
           return;
         }
 
+        // Se o Supabase não retornar o usuário, tenta autenticar
+        // para verificar se a conta já foi criada anteriormente.
         if (!result.user) {
-          setErrorMsg("O Supabase não retornou os dados da conta. Tente novamente.");
+          const existingLogin = await signInWithEmail(
+            trimmedEmail,
+            trimmedPassword,
+          );
+
+          if (
+            existingLogin.success &&
+            existingLogin.user &&
+            existingLogin.session
+          ) {
+            syncSupabaseUser(existingLogin.user);
+            navigate("/dashboard", { replace: true });
+            return;
+          }
+
+          setErrorMsg(
+            existingLogin.error ||
+              "Não foi possível concluir o cadastro. Tente novamente.",
+          );
           return;
         }
 
@@ -282,6 +312,7 @@ export const Auth = () => {
         }
 
         syncSupabaseUser(result.user);
+
         addNotification(
           "Cadastro concluído",
           "Sua conta EcoByte foi criada com sucesso.",
@@ -291,14 +322,17 @@ export const Auth = () => {
             email: trimmedEmail,
           },
         );
+
         navigate("/dashboard", { replace: true });
         return;
       }
 
       const hashedPassword = await hashPassword(trimmedPassword);
+
       const developerStarter = DEVELOPER_ACCOUNT_EMAILS.includes(trimmedEmail)
         ? 15
         : 0;
+
       const newAccount = ensureDeveloperStreak({
         name: trimmedName,
         email: trimmedEmail,
@@ -319,6 +353,7 @@ export const Auth = () => {
       saveAccounts(accounts);
       setUser(buildUserFromAccount(newAccount));
       saveSession(trimmedEmail);
+
       addNotification(
         "Cadastro concluído",
         "Sua conta EcoByte foi criada com sucesso.",
@@ -328,9 +363,11 @@ export const Auth = () => {
           email: trimmedEmail,
         },
       );
+
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Falha na autenticação:", error);
+
       setErrorMsg(
         error instanceof Error
           ? error.message
@@ -397,9 +434,11 @@ export const Auth = () => {
                 <div className="inline-flex items-center rounded-full border border-eco-neon/30 bg-eco-neon/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-eco-neon">
                   EcoByte
                 </div>
+
                 <h2 className="mt-8 max-w-sm text-4xl font-semibold leading-tight text-white">
                   Transforme hábitos em impacto real.
                 </h2>
+
                 <p className="mt-4 max-w-sm text-sm leading-6 text-gray-300">
                   Acompanhe descarte consciente, metas e recompensas em uma
                   experiência criada para manter a comunidade mais eficiente e
@@ -416,6 +455,7 @@ export const Auth = () => {
                     Recompensas progressivas e ciclos de 24h.
                   </div>
                 </div>
+
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-eco-neon">
                     Sustentabilidade
@@ -437,6 +477,7 @@ export const Auth = () => {
                 >
                   <ArrowLeft size={18} />
                 </button>
+
                 <button
                   type="button"
                   onClick={() => navigate(isLogin ? "/register" : "/login")}
@@ -455,9 +496,11 @@ export const Auth = () => {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-eco-neon">
                   EcoByte
                 </p>
+
                 <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
                   {isLogin ? "Acesse sua conta" : "Crie sua conta"}
                 </h1>
+
                 <p className="mt-2 text-sm leading-6 text-gray-300">
                   {isLogin
                     ? "Continue acompanhando seu impacto sustentável."
@@ -469,6 +512,7 @@ export const Auth = () => {
                     {errorMsg}
                   </div>
                 )}
+
                 {successMsg && (
                   <div
                     className="mt-5 rounded-2xl border border-eco-neon/30 bg-eco-neon/10 px-4 py-3 text-sm text-eco-neon"
@@ -487,10 +531,12 @@ export const Auth = () => {
                       >
                         Nome completo
                       </label>
+
                       <div className="relative">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
                           <User size={18} />
                         </div>
+
                         <input
                           id="name"
                           type="text"
@@ -512,10 +558,12 @@ export const Auth = () => {
                     >
                       E-mail
                     </label>
+
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
                         <Mail size={18} />
                       </div>
+
                       <input
                         id="email"
                         type="email"
@@ -536,10 +584,12 @@ export const Auth = () => {
                     >
                       Senha
                     </label>
+
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
                         <Lock size={18} />
                       </div>
+
                       <input
                         id="password"
                         type={showPassword ? "text" : "password"}
@@ -552,6 +602,7 @@ export const Auth = () => {
                         }
                         required
                       />
+
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
@@ -577,10 +628,12 @@ export const Auth = () => {
                       >
                         Confirmar senha
                       </label>
+
                       <div className="relative">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
                           <Lock size={18} />
                         </div>
+
                         <input
                           id="confirmPassword"
                           type={showConfirmPassword ? "text" : "password"}
@@ -591,6 +644,7 @@ export const Auth = () => {
                           autoComplete="new-password"
                           required
                         />
+
                         <button
                           type="button"
                           onClick={() =>
@@ -633,6 +687,7 @@ export const Auth = () => {
                         className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-eco-neon focus:ring-eco-neon"
                         required
                       />
+
                       <label
                         htmlFor="legalAccept"
                         className="text-sm leading-6 text-gray-300"
