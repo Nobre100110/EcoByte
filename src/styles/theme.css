@@ -1,0 +1,248 @@
+@import "tailwindcss";
+
+@layer theme {
+  :root {
+    --color-eco-black: #0d0d0d;
+    --color-eco-green: #1a7a3c;
+    --color-eco-neon: #2ecc71;
+    --color-eco-white: #ffffff;
+    --color-eco-mint: #f0faf4;
+    --color-eco-amber: #f5a623;
+  }
+}
+
+@theme {
+  --font-display: "Syne", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "Space Mono", monospace;
+
+  --color-eco-black: var(--color-eco-black);
+  --color-eco-green: var(--color-eco-green);
+  --color-eco-neon: var(--color-eco-neon);
+  --color-eco-white: var(--color-eco-white);
+  --color-eco-mint: var(--color-eco-mint);
+  --color-eco-amber: var(--color-eco-amber);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-eco-black);
+  color: var(--color-eco-white);
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  color-scheme: dark;
+  --a11y-muted-text: #a3aaa5;
+  --a11y-border: rgb(255 255 255 / 10%);
+  --a11y-border-strong: rgb(255 255 255 / 20%);
+  --a11y-surface: rgb(255 255 255 / 5%);
+  --a11y-surface-strong: rgb(255 255 255 / 10%);
+  --a11y-text-scale: 1;
+  font-size: 100%;
+}
+
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-appearance="light"] {
+  color-scheme: light;
+  --color-eco-black: #f3f7f4;
+  --color-eco-white: #17231b;
+  --color-eco-green: #176b3a;
+  --color-eco-neon: #176b3a;
+  --color-eco-mint: #e6f4eb;
+  --color-eco-amber: #805000;
+  --a11y-muted-text: #536159;
+  --a11y-border: rgb(23 35 27 / 10%);
+  --a11y-border-strong: rgb(23 35 27 / 20%);
+  --a11y-surface: rgb(23 35 27 / 4%);
+  --a11y-surface-strong: rgb(23 35 27 / 7%);
+}
+
+:root[data-appearance="colorblind"] {
+  --color-eco-green: #007f5f;
+  --color-eco-neon: #56b4e9;
+  --color-eco-mint: #e6f5fb;
+  --color-eco-amber: #e69f00;
+}
+
+:root[data-contrast="high"] {
+  --a11y-muted-text: #e1e6e2;
+  --a11y-border: rgb(255 255 255 / 52%);
+  --a11y-border-strong: rgb(255 255 255 / 75%);
+  --a11y-surface: rgb(255 255 255 / 12%);
+  --a11y-surface-strong: rgb(255 255 255 / 20%);
+  --color-eco-neon: #62ed91;
+}
+
+:root[data-contrast="maximum"] {
+  --a11y-muted-text: #fff;
+  --a11y-border: #fff;
+  --a11y-border-strong: #fff;
+  --a11y-surface: rgb(255 255 255 / 20%);
+  --a11y-surface-strong: rgb(255 255 255 / 30%);
+  --color-eco-neon: #9bffb8;
+}
+
+:root[data-appearance="light"][data-contrast="high"] {
+  --a11y-muted-text: #2b3a30;
+  --a11y-border: rgb(23 35 27 / 50%);
+  --a11y-border-strong: rgb(23 35 27 / 75%);
+  --a11y-surface: rgb(23 35 27 / 8%);
+  --a11y-surface-strong: rgb(23 35 27 / 14%);
+  --color-eco-neon: #075d31;
+}
+
+:root[data-appearance="light"][data-contrast="maximum"] {
+  --a11y-muted-text: #101a13;
+  --a11y-border: #17231b;
+  --a11y-border-strong: #17231b;
+  --a11y-surface: rgb(23 35 27 / 12%);
+  --a11y-surface-strong: rgb(23 35 27 / 20%);
+  --color-eco-neon: #064522;
+}
+
+:root[data-appearance="colorblind"][data-contrast="high"] {
+  --color-eco-neon: #80d0ff;
+}
+
+:root[data-appearance="colorblind"][data-contrast="maximum"] {
+  --color-eco-neon: #b4e6ff;
+}
+
+:root[data-text-size="small"] {
+  --a11y-text-scale: 0.9375;
+  font-size: 93.75%;
+}
+
+:root[data-text-size="normal"] {
+  --a11y-text-scale: 1;
+  font-size: 100%;
+}
+
+:root[data-text-size="large"] {
+  --a11y-text-scale: 1.125;
+  font-size: 112.5%;
+}
+
+[class~="text-[10px]"] {
+  font-size: calc(10px * var(--a11y-text-scale)) !important;
+}
+
+[class~="text-[11px]"] {
+  font-size: calc(11px * var(--a11y-text-scale)) !important;
+}
+
+:root[data-appearance="light"] body,
+:root[data-appearance="light"] .bg-black {
+  background-color: var(--color-eco-black);
+}
+
+:root[data-appearance="light"] [class~="text-white"] {
+  color: var(--color-eco-white) !important;
+}
+
+:root[data-appearance="light"] [class~="bg-eco-green"][class~="text-white"],
+:root[data-appearance="light"] [class~="bg-red-500"][class~="text-white"] {
+  color: #fff !important;
+}
+
+:root[data-appearance="light"] [class~="text-gray-200"],
+:root[data-appearance="light"] [class~="text-gray-300"],
+:root[data-appearance="light"] [class~="text-gray-400"],
+:root[data-appearance="light"] [class~="text-gray-500"],
+:root[data-appearance="light"] [class~="text-gray-600"] {
+  color: var(--a11y-muted-text) !important;
+}
+
+:root[data-appearance="light"] [class~="bg-white/5"] {
+  background-color: var(--a11y-surface) !important;
+}
+
+:root[data-appearance="light"] [class~="bg-white/10"] {
+  background-color: var(--a11y-surface-strong) !important;
+}
+
+:root[data-appearance="light"] [class~="border-white/10"],
+:root[data-appearance="light"] [class~="border-white/20"] {
+  border-color: var(--a11y-border) !important;
+}
+
+:root[data-appearance="light"] [class~="border-white/20"] {
+  border-color: var(--a11y-border-strong) !important;
+}
+
+[class~="text-gray-200"],
+[class~="text-gray-300"],
+[class~="text-gray-400"],
+[class~="text-gray-500"],
+[class~="text-gray-600"] {
+  color: var(--a11y-muted-text);
+}
+
+[class~="border-white/10"],
+[class~="border-white/20"] {
+  border-color: var(--a11y-border);
+}
+
+[class~="border-white/20"] {
+  border-color: var(--a11y-border-strong);
+}
+
+[class~="bg-white/5"] {
+  background-color: var(--a11y-surface);
+}
+
+[class~="bg-white/10"] {
+  background-color: var(--a11y-surface-strong);
+}
+
+[class~="placeholder:text-gray-500"]::placeholder {
+  color: var(--a11y-muted-text);
+  opacity: 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-eco-neon);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+.glass-card {
+  background: rgba(26, 122, 60, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+/* Custom scrollbar for horizontal scrolls */
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
